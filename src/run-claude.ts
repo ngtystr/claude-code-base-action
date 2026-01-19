@@ -21,6 +21,7 @@ export type ClaudeOptions = {
   claudeEnv?: string;
   fallbackModel?: string;
   timeoutMinutes?: string;
+  model?: string;
 };
 
 type PreparedConfig = {
@@ -105,6 +106,9 @@ export function prepareRunConfig(
 
   // Parse custom environment variables
   const customEnv = parseCustomEnvVars(options.claudeEnv);
+  if (options.model) {
+    claudeArgs.push("--model", options.model);
+  }
 
   return {
     claudeArgs,

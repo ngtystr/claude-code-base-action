@@ -63,6 +63,10 @@ inputs:
     description: "Anthropic API key (required for direct Anthropic API)"
     required: false
     default: ""
+  claude_code_oauth_token:
+    description: "Claude Code OAuth token (alternative to anthropic_api_key)"
+    required: false
+    default: ""
   use_bedrock:
     description: "Use Amazon Bedrock with OIDC authentication instead of direct Anthropic API"
     required: false
@@ -126,17 +130,17 @@ runs:
       run: |
         # Self-hosted runner対応: 徹底的なクリーンアップ
         npm uninstall -g @anthropic-ai/claude-code 2>/dev/null || true
-        
+
         # 残存ファイルを手動削除（self-hosted runnerで必要）
         NPM_GLOBAL_ROOT=$(npm root -g 2>/dev/null || echo "/usr/local/lib/node_modules")
         rm -rf "$NPM_GLOBAL_ROOT/@anthropic-ai/claude-code" 2>/dev/null || true
         rm -rf "$NPM_GLOBAL_ROOT/@anthropic-ai/.claude-code-"* 2>/dev/null || true
-        
+
         # npmキャッシュクリア
         npm cache clean --force 2>/dev/null || true
-        
+
         # forceオプション付きでインストール
-        npm install -g @anthropic-ai/claude-code@1.0.43 --force
+        npm install -g @anthropic-ai/claude-code@latest --force
 
     - name: Run Claude Code Action
       shell: bash
@@ -167,15 +171,16 @@ runs:
         # Provider configuration
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         ANTHROPIC_BASE_URL: ${{ env.ANTHROPIC_BASE_URL }}
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude_code_oauth_token }}
         # Only set provider flags if explicitly true, since any value (including "false") is truthy
         CLAUDE_CODE_USE_BEDROCK: ${{ inputs.use_bedrock == 'true' && '1' || '' }}
         CLAUDE_CODE_USE_VERTEX: ${{ inputs.use_vertex == 'true' && '1' || '' }}
         CLAUDE_CODE_USE_OAUTH: ${{ inputs.use_oauth == 'true' && '1' || '' }}
 
         # OAuth configuration
-        CLAUDE_ACCESS_TOKEN: ${{ inputs.claude_access_token }}
-        CLAUDE_REFRESH_TOKEN: ${{ inputs.claude_refresh_token }}
-        CLAUDE_EXPIRES_AT: ${{ inputs.claude_expires_at }}
+        # CLAUDE_ACCESS_TOKEN: ${{ inputs.claude_access_token }}
+        # CLAUDE_REFRESH_TOKEN: ${{ inputs.claude_refresh_token }}
+        # CLAUDE_EXPIRES_AT: ${{ inputs.claude_expires_at }}
 
         # AWS configuration
         AWS_REGION: ${{ env.AWS_REGION }}
