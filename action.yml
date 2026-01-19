@@ -178,9 +178,9 @@ runs:
         CLAUDE_CODE_USE_OAUTH: ${{ inputs.use_oauth == 'true' && '1' || '' }}
 
         # OAuth configuration
-        # CLAUDE_ACCESS_TOKEN: ${{ inputs.claude_access_token }}
-        # CLAUDE_REFRESH_TOKEN: ${{ inputs.claude_refresh_token }}
-        # CLAUDE_EXPIRES_AT: ${{ inputs.claude_expires_at }}
+        CLAUDE_ACCESS_TOKEN: ${{ inputs.claude_access_token }}
+        CLAUDE_REFRESH_TOKEN: ${{ inputs.claude_refresh_token }}
+        CLAUDE_EXPIRES_AT: ${{ inputs.claude_expires_at }}
 
         # AWS configuration
         AWS_REGION: ${{ env.AWS_REGION }}
