@@ -299,11 +299,14 @@ export async function runClaude(promptPath: string, options: ClaudeOptions) {
     // Try to process the output and save execution metrics
     try {
       await writeFile("output.txt", output);
-
-      // Process output.txt into JSON and save to execution file
-      const { stdout: jsonOutput } = await execAsync("jq -s '.' output.txt");
-      await writeFile(EXECUTION_FILE, jsonOutput);
-
+      // jq の出力を Node の stdout buffer に通すと child_process.exec の
+      // 既定 maxBuffer (1MB) に当たって RangeError [ERR_CHILD_PROCESS_STDIO_MAXBUFFER]
+      // で死に、EXECUTION_FILE が生成されないことがある（長時間タスクで output が
+      // 数 MB〜数十 MB になるケース）。シェル側で直接 EXECUTION_FILE にリダイレクト
+      // することで Node 側に乗せず、念のため maxBuffer も大きめに上げる。
+      await execAsync(`jq -s '.' output.txt > "${EXECUTION_FILE}"`, {
+        maxBuffer: 256 * 1024 * 1024,
+      });
       console.log(`Log saved to ${EXECUTION_FILE}`);
     } catch (e) {
       core.warning(`Failed to process output for execution metrics: ${e}`);
@@ -318,8 +321,9 @@ export async function runClaude(promptPath: string, options: ClaudeOptions) {
     if (output) {
       try {
         await writeFile("output.txt", output);
-        const { stdout: jsonOutput } = await execAsync("jq -s '.' output.txt");
-        await writeFile(EXECUTION_FILE, jsonOutput);
+        await execAsync(`jq -s '.' output.txt > "${EXECUTION_FILE}"`, {
+          maxBuffer: 256 * 1024 * 1024,
+        });
         core.setOutput("execution_file", EXECUTION_FILE);
       } catch (e) {
         // Ignore errors when processing output during failure
