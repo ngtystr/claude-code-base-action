@@ -128,19 +128,38 @@ runs:
     - name: Install Claude Code
       shell: bash
       run: |
-        # Self-hosted runner対応: 徹底的なクリーンアップ
-        npm uninstall -g @anthropic-ai/claude-code 2>/dev/null || true
+        # ============================================================
+        # 二段構えで EACCES を完全に避ける:
+        #   1) 既存 hostedtoolcache 側の残骸を、所有を奪ってから rm -rf
+        #      （root or 同 uid で動いてれば成功する。失敗しても続行 = 2 段目で救う）
+        #   2) user-local prefix (~/.npm-global) に install して、以後の所有問題を
+        #      根本回避（hostedtoolcache を一切触らない）
+        # self-hosted runner で container と非 container が同居すると、container 内 root が
+        # 書いた global node_modules に runner ユーザーがアクセスできず rename で EACCES に
+        # なる事故が起きていたため、ここで断つ。
+        # ============================================================
 
-        # 残存ファイルを手動削除（self-hosted runnerで必要）
-        NPM_GLOBAL_ROOT=$(npm root -g 2>/dev/null || echo "/usr/local/lib/node_modules")
-        rm -rf "$NPM_GLOBAL_ROOT/@anthropic-ai/claude-code" 2>/dev/null || true
-        rm -rf "$NPM_GLOBAL_ROOT/@anthropic-ai/.claude-code-"* 2>/dev/null || true
+        # ---- 1) 既存 global 側の掃除（best-effort）。失敗しても 2) で完結するので必ず続行 ----
+        {
+          npm uninstall -g @anthropic-ai/claude-code 2>/dev/null || true
+          NPM_GLOBAL_ROOT=$(npm root -g 2>/dev/null || echo "/usr/local/lib/node_modules")
+          # chown が成功するなら所有を奪って rm -rf を通せる（root or 同 uid のとき有効）
+          chown -R "$(id -u):$(id -g)" "$NPM_GLOBAL_ROOT/@anthropic-ai" 2>/dev/null || true
+          rm -rf "$NPM_GLOBAL_ROOT/@anthropic-ai/claude-code" 2>/dev/null || true
+          rm -rf "$NPM_GLOBAL_ROOT/@anthropic-ai/.claude-code-"* 2>/dev/null || true
+          npm cache clean --force 2>/dev/null || true
+        } || true
 
-        # npmキャッシュクリア
-        npm cache clean --force 2>/dev/null || true
-
-        # forceオプション付きでインストール
-        npm install -g @anthropic-ai/claude-code@latest --force
+        # ---- 2) user-local prefix に install（ここが本命） ----
+        NPM_PREFIX="$HOME/.npm-global"
+        mkdir -p "$NPM_PREFIX"
+        # 同 prefix なので残存があっても自分の所有 → 確実に rm できる
+        rm -rf "$NPM_PREFIX/lib/node_modules/@anthropic-ai/claude-code" \
+               "$NPM_PREFIX/lib/node_modules/@anthropic-ai/.claude-code-"* 2>/dev/null || true
+        # user-local なので --force は不要、--prefix で明示
+        npm install -g @anthropic-ai/claude-code@latest --prefix "$NPM_PREFIX"
+        # 後続 step で `claude` コマンドが見つかるように PATH を通す
+        echo "$NPM_PREFIX/bin" >> "$GITHUB_PATH"
 
     - name: Run Claude Code Action
       shell: bash
